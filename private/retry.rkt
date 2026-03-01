@@ -1,12 +1,12 @@
 #lang racket
 
-(provide with-retry exponential-backoff immediate-retry)
+(provide with-retry exponential-backoff immediate-retry no-retry)
 (module+ test (require rackunit "test-util.rkt"))
 (require "clock.rkt")
 
 ;; example
 #;
-(with-retry (exponential-backoff #:max-attempts) (lambda (retry e attempt)
+(with-retry (lambda (retry e attempt)
               (when (exn-not-retryable? e)
                 (raise e))
               ;; no more than 2 attempts, including the initial
@@ -36,6 +36,8 @@
                                              (handler retry e attempt)))])
       (thnk))))
 
+;; example retry handlers
+
 ;; RetryHandler
 ;; initial-delay a NonNegativeReal, defaults to 1
 ;;   how long (in seconds) to wait after the first try before retrying
@@ -55,6 +57,10 @@
 ;; RetryHandler
 (define (immediate-retry #:max-attempts [max-attempts 3] #:exn-retryable? [exn-retryable? (const #t)])
   (exponential-backoff #:initial-delay 0 #:delay-multiplier 0 #:max-attempts max-attempts #:exn-retryable? exn-retryable?))
+
+;; RetryHandler
+(define (no-retry)
+  (lambda (_retry e _attempt) (raise e)))
 
 (module+ test
   (test-case

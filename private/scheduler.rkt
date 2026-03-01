@@ -1,6 +1,7 @@
 #lang racket
 
 (module+ test (require rackunit "test-util.rkt"))
+(provide (all-defined-out))
 (require racket/control "clock.rkt")
 
 (module+ main
@@ -62,9 +63,9 @@
   ;; scheduler will end up calling this k, which will just continue in the schedule body
   ;; like we never left, up to the end of the prompt in schedule.
   ;; This all assumes that nothing happens after the prompt in schedule.
-  (control k
-           (let ([tsk (hot-task k waiting-until)])
-             (enqueue-task! tsk))))
+  (shift k
+         (let ([tsk (hot-task k waiting-until)])
+           (enqueue-task! tsk))))
 
 ;; insert task into pool maintaining sorting by waiting-until.
 ;; assumes it's currently sorted
@@ -121,6 +122,18 @@
     ;; b should happen before c since it's been waiting
     (list (void) '(a b c) 1)))
   (test-case 
+   "multiple yields in a schedule"
+   (check-equal?
+    (with-timing-and-logging
+      (with-scheduling
+        (schedule
+          (yield)
+          (yield)
+          (log 'ok))))
+    (list (void)
+          '(ok)
+          0)))
+  (test-case 
    "scheduling happens before any tasks run"
    (check-equal?
     (with-timing-and-logging
@@ -139,4 +152,14 @@
         (log (schedule 42))))
     (list (void)
           (list (void))
-          0))))
+          0)))
+  (test-case
+   "operations do not work outside of with-scheduling"
+   (check-exn
+    #rx"scheduler not active"
+    (lambda ()
+      (prompt (yield))))
+   (check-exn
+    #rx"scheduler not active"
+    (lambda ()
+      (prompt (schedule 42))))))
